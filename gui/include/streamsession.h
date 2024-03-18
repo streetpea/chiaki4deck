@@ -138,6 +138,8 @@ class StreamSession : public QObject
 		bool cant_display = false;
 
 		QHash<int, Controller *> controllers;
+		QQueue<int16_t> haptic_rumblel;
+		QQueue<int16_t> haptic_rumbler;
 #if CHIAKI_GUI_ENABLE_SETSU
 		Setsu *setsu;
 		QMap<QPair<QString, SetsuTrackingId>, uint8_t> setsu_ids;
@@ -218,6 +220,7 @@ class StreamSession : public QObject
 		void SdeckQueueHaptics(haptic_packet_t packetl, haptic_packet_t packetr);
 		void ConnectSdeckHaptics();
 #endif
+		void QueueHapticRumble(int16_t left, int16_t right);
 
 	public:
 		explicit StreamSession(const StreamSessionConnectInfo &connect_info, QObject *parent = nullptr);
@@ -260,6 +263,7 @@ class StreamSession : public QObject
 #if CHIAKI_GUI_ENABLE_STEAMDECK_NATIVE
 		void SdeckHapticPushed(haptic_packet_t packetl, haptic_packet_t packetr);
 #endif
+		void HapticRumblePushed(int16_t left, int16_t right);
 		void SessionQuit(ChiakiQuitReason reason, const QString &reason_str);
 		void LoginPINRequested(bool incorrect);
 		void ConnectedChanged();

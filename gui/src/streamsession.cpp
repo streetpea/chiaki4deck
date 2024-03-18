@@ -327,7 +327,6 @@ StreamSession::StreamSession(const StreamSessionConnectInfo &connect_info, QObje
 		if(sdeck)
 			QTimer::singleShot(1100, this, &StreamSession::ConnectSdeckHaptics);
 #endif
-		rumbleHaptics = true;
 	}
 	UpdateGamepads();
 
@@ -983,6 +982,11 @@ void StreamSession::InitHaptics()
 	sdeck_haptics_senderl = nullptr;
 #endif
 	haptics_resampler_buf = nullptr;
+	rumbleHaptics = true;
+	haptic_rumblel = {};
+	haptic_rumblel.reserve(20);
+	haptic_rumbler = {};
+	haptic_rumbler.reserve(20);
 #ifdef Q_OS_LINUX
 	// Haptics work most reliably with Pipewire, so try to use that if available
 	SDL_SetHint("SDL_AUDIODRIVER", "pipewire");
@@ -1002,6 +1006,26 @@ void StreamSession::InitHaptics()
 	SDL_BuildAudioCVT(&cvt, AUDIO_S16LSB, 4, 3000, AUDIO_S16LSB, 4, 48000);
 	cvt.len = 240;  // 10 16bit stereo samples
 	haptics_resampler_buf = (uint8_t*) calloc(cvt.len * cvt.len_mult, sizeof(uint8_t));
+	connect(this, &StreamSession::HapticRumblePushed, this, &StreamSession::QueueHapticRumble);
+	auto haptic_rumble_timer = new QTimer(this);
+	connect(haptic_rumble_timer, &QTimer::timeout, this, [this]{
+		if(!haptic_rumblel.isEmpty() && !haptic_rumbler.isEmpty())
+		{
+			auto left = haptic_rumblel.dequeue();
+			auto right = haptic_rumbler.dequeue();
+			QMetaObject::invokeMethod(this, [this, left, right]() {
+				for(auto controller : controllers)
+				{
+#if CHIAKI_GUI_ENABLE_STEAMDECK_NATIVE
+					if(haptics_sdeck < 1 && controller->IsSteamDeck())
+						continue;
+#endif
+					controller->SetHapticRumble(left, right, 10);
+				}
+			});
+		}
+	});
+	haptic_rumble_timer->start(1);
 }
 
 void StreamSession::DisconnectHaptics()
@@ -1158,8 +1182,6 @@ void StreamSession::PushAudioFrame(int16_t *buf, size_t samples_count)
 	if(!audio_out)
 		return;
 
-	// qDebug() << "Audio queue" << (SDL_GetQueuedAudioSize(audio_out) / audio_out_sample_size / samples_count) * 10 << "ms";
-
 	// Start draining queue when the latency gets too high
 	if(SDL_GetQueuedAudioSize(audio_out) > 3 * audio_buffer_size)
 		audio_out_drain_queue = true;
@@ -1225,7 +1247,6 @@ void StreamSession::PushHapticsFrame(uint8_t *buf, size_t buf_size)
 #endif
 	if(rumbleHaptics && haptics_output == 0)
 	{
-
 		int16_t amplitudel = 0, amplituder = 0;
 		int32_t suml = 0, sumr = 0;
 		const size_t sample_size = 2 * sizeof(int16_t); // stereo samples
@@ -1233,25 +1254,20 @@ void StreamSession::PushHapticsFrame(uint8_t *buf, size_t buf_size)
 		size_t buf_count = buf_size / sample_size;
 		for (size_t i = 0; i < buf_count; i++){
 			size_t cur = i * sample_size;
-
 			memcpy(&amplitudel, buf + cur, sizeof(int16_t));
 			memcpy(&amplituder, buf + cur + sizeof(int16_t), sizeof(int16_t));
 			suml += amplitudel;
 			sumr += amplituder;
-		}
-		uint16_t left = 0, right = 0;
-		left = suml / buf_count;
-		right = sumr / buf_count;
-		QMetaObject::invokeMethod(this, [this, left, right]() {
-			for(auto controller : controllers)
+			if (i % 3 == 2)
 			{
-#if CHIAKI_GUI_ENABLE_STEAMDECK_NATIVE
-				if(haptics_sdeck < 1 && controller->IsSteamDeck())
-					continue;
-#endif
-				controller->SetHapticRumble(left, right, 10);
+				suml /= 3;
+				sumr /= 3;
+				emit HapticRumblePushed(suml, sumr);
+				suml = 0;
+				sumr = 0;
 			}
-		});
+
+		}
 		return;
 	}
 	if(haptics_output == 0)
@@ -1279,6 +1295,12 @@ void StreamSession::PushHapticsFrame(uint8_t *buf, size_t buf_size)
 		CHIAKI_LOGE(log.GetChiakiLog(), "Failed to submit haptics audio to device: %s", SDL_GetError());
 		return;
 	}
+}
+
+void StreamSession::QueueHapticRumble(int16_t left, int16_t right)
+{
+	haptic_rumblel.enqueue(left);
+	haptic_rumbler.enqueue(right);
 }
 
 #if CHIAKI_GUI_ENABLE_STEAMDECK_NATIVE

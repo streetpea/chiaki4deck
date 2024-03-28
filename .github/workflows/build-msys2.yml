@@ -67,6 +67,7 @@ jobs:
 
       - name: Build sdl2
         run: |
+          mkdir sdl2
           scripts/build-sdl2.sh sdl2
 
       - name: Configure Chiaki4deck

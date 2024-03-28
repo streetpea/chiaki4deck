@@ -48,6 +48,5 @@ cmake \
 	-DSDL_PIPEWIRE=ON \
 	..
 # SDL_THREADS is not needed, but it doesn't compile without
-
-make -j4
-make install
+cmake --build . --target SDL2 --config Release
+cmake --build . --target install --config Release

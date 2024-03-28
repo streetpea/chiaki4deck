@@ -59,7 +59,7 @@ jobs:
       - name: Install python protobuf and zip
         run: |
           pip install protobuf
-          pacman -S zip git --noconfirm
+          pacman -S zip git make --noconfirm
 
       - name: Build libbplacebo
         run: |

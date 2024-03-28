@@ -65,6 +65,10 @@ jobs:
         run: |
           scripts/build-libplacebo.sh
 
+      - name: Build sdl2
+        run: |
+          scripts/build-sdl2.sh sdl2
+
       - name: Configure Chiaki4deck
         run: |
           cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCHIAKI_ENABLE_CLI=OFF

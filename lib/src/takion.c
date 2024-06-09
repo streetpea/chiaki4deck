@@ -1469,6 +1469,7 @@ static ChiakiErrorCode av_packet_parse(bool v12, ChiakiTakionAVPacket *packet, C
 		packet->unit_index = (uint16_t)((dword_2 >> 0x15) & 0x7ff);
 		packet->units_in_frame_total = (uint16_t)(((dword_2 >> 0xa) & 0x7ff) + 1);
 		packet->units_in_frame_fec = (uint16_t)(dword_2 & 0x3ff);
+		printf("\nFEC frames: %d\n", packet->units_in_frame_fec);
 	}
 	else
 	{

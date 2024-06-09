@@ -23,6 +23,8 @@ static void *congestion_control_thread_func(void *user)
 		chiaki_packet_stats_get(control->stats, true, &received, &lost);
 		ChiakiTakionCongestionPacket packet = { 0 };
 		uint64_t total = received + lost;
+		lost = total * 0.5;
+		received = total - lost;
 		control->packet_loss = total > 0 ? (double)lost / total : 0;
 		if(control->packet_loss > control->packet_loss_max)
 		{
